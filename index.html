@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Chat App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        /* body {
+            margin-top: 30px;
+        } */
+
+        #chatDiv {
+            display: none;
+            border: 1px solid grey;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .usersDiv {
+            width: 20% !important;
+        }
+
+        .center1 {
+            width: 100%;
+            font-size: 18px;
+            color: green;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .center2 {
+            width: 100%;
+            font-size: 18px;
+            color: red;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .chat {
+            height: 60vh;
+            overflow-y: scroll;
+        }
+
+        #type {
+            float: right;
+            background: transparent;
+            border-radius: 5px;
+            padding: 3px;
+            color: white;
+            width: 111px;
+            text-align: center;
+            text-transform: capitalize;
+            letter-spacing: 0.4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="userLogin">
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="exampleInputEmail1">Enter Username</label>
+                    <input id="user" type="text" class="form-control" id="exampleInputEmail1"
+                        aria-describedby="emailHelp">
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+
+        <div id="chatDiv" class="row">
+            <div id="usersConnected" class="alert alert-success">
+
+            </div>
+            <div class="col">
+                <div id="chat" class="chat"></div>
+                <hr />
+                <form id="msgForm" class="formDiv">
+                    <div class="form-group">
+                        <label for="exampleInputEmail1">Enter Message</label><span id="type"></span>
+                        <input id="msg" type="text" class="form-control" id="exampleInputEmail1"
+                            aria-describedby="emailHelp">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(function () {
+            var socket = io.connect();
+            var msgForm = $('#msgForm');
+            var msg = $('#msg');
+            var chat = $('#chat');
+            var user = $('#user');
+            var userForm = $('#userForm');
+            var userLogin = $('#userLogin');
+            var chatDiv = $('#chatDiv');
+            var userss = $('#userss');
+            var users = $('#usersConnected');
+            var type = $('#type');
+            var name = localStorage.getItem("username")
+            // console.log(name)
+
+            msgForm.submit(function (e) {
+                e.preventDefault();
+                socket.emit('msg', msg.val());
+                msg.val("");
+            })
+
+            socket.on('msg', function (data) {
+                if(name === data.user){
+                    chat.append('<div class="alert alert-primary"><strong>You</strong>: ' + data.msg + '</div>')
+                }else{
+                    chat.append('<div class="alert alert-primary"><strong>' + data.user + '</strong>: ' + data.msg + '</div>')
+                }
+            })
+
+            msg.keydown(function () {
+                socket.emit('getUsername123')
+            })
+
+            socket.on('getUsername123', function (data) {
+                if (data !== name) {
+                    type[0].innerHTML = data + " ..."
+                    type[0].style.background = "green"
+                    setTimeout(() => {
+                        type[0].innerHTML = ""
+                        type[0].style.background = "transparent"
+                    }, 1500)
+                }
+            })
+
+            userForm.submit(function (e) {
+                e.preventDefault();
+                localStorage.setItem("username", user.val())
+                socket.emit('user', user.val(), function (data) {
+                    if (data) {
+                        userLogin.hide();
+                        chatDiv.show();
+                    }
+                    socket.on('users', function (data) {
+                        users[0].innerHTML = `Connected Users: <strong>${data.length}</strong>`
+                    })
+                });
+
+                socket.on('userName', function (data) {
+                    if (data === name) {
+                        chat.append('<div class="center1">You Connected</div>')
+                    } else {
+                        chat.append('<div class="center1">' + data + ' Connected</div>')
+                    }
+                })
+                user.val("");
+            })
+
+            socket.on('disconnectedUser', function (data) {
+                if (data) {
+                    if (data === name) {
+                        chat.append('<div class="center2">You Disconnected</div>')
+                    } else {
+                        chat.append('<div class="center2">' + data + ' Disconnected</div>')
+                    }
+                }
+            })
+
+        });
+
+    </script>
+</body>
+
+</html>
